@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinRanking — Tablas de Activos Financieros</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0D1117;
+    --bg2: #161B22;
+    --bg3: #1C2128;
+    --border: #30363D;
+    --green: #00C896;
+    --green-dim: #00C89622;
+    --red: #FF4757;
+    --red-dim: #FF475722;
+    --gold: #F0A500;
+    --gold-dim: #F0A50022;
+    --blue: #58A6FF;
+    --blue-dim: #58A6FF22;
+    --purple: #C084FC;
+    --purple-dim: #C084FC22;
+    --text: #F0F6FF;
+    --text-dim: #8B949E;
+    --text-muted: #484F58;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+
+  /* ─── TICKER ─── */
+  .ticker-wrap { background: #000; border-bottom: 1px solid var(--border); overflow: hidden; height: 34px; display: flex; align-items: center; }
+  .ticker-label { background: var(--green); color: #000; font-family: var(--display); font-weight: 800; font-size: 11px; letter-spacing: 1px; padding: 0 10px; height: 100%; display: flex; align-items: center; flex-shrink: 0; z-index: 2; }
+  .ticker-track { display: flex; animation: ticker 60s linear infinite; white-space: nowrap; }
+  .ticker-item { font-size: 12px; padding: 0 22px; display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
+  .ticker-item .sym { color: var(--text); font-weight: 600; }
+  .ticker-item .price { color: var(--text); }
+  .ticker-item .chg.up { color: var(--green); }
+  .ticker-item .chg.dn { color: var(--red); }
+  .ticker-dot { color: var(--border); }
+  @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  /* ─── HEADER ─── */
+  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .logo { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 4px; }
+  .logo span { color: var(--green); }
+  .logo-sub { font-size: 10px; color: var(--text-muted); font-weight: 400; letter-spacing: 2px; margin-top: 2px; font-family: var(--display); }
+  nav { display: flex; gap: 2px; }
+  nav a { color: var(--text-dim); text-decoration: none; font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: 0.5px; padding: 6px 14px; border-radius: 4px; cursor: pointer; transition: all .15s; }
+  nav a:hover, nav a.active { color: var(--text); background: var(--bg3); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .live-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--green); font-family: var(--display); font-weight: 600; letter-spacing: 1px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 1.4s ease-in-out infinite; }
+  .refresh-info { font-family: var(--display); font-size: 10px; color: var(--text-muted); letter-spacing: 0.5px; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* ─── LAYOUT ─── */
+  .main-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; max-width: 1400px; margin: 0 auto; padding: 20px 16px; }
+
+  /* ─── SECTION HEADER ─── */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+  .section-title { font-family: var(--display); font-weight: 800; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; display: block; width: 3px; height: 16px; background: var(--green); border-radius: 2px; }
+  .section-title.red::before { background: var(--red); }
+  .section-title.gold::before { background: var(--gold); }
+  .section-title.blue::before { background: var(--blue); }
+  .section-tabs { display: flex; gap: 4px; }
+  .tab { font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--text-muted); padding: 4px 10px; border-radius: 3px; cursor: pointer; border: 1px solid transparent; letter-spacing: 0.5px; transition: all .15s; }
+  .tab.active, .tab:hover { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+
+  /* ─── TABLE ─── */
+  .table-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { background: var(--bg3); color: var(--text-muted); font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border); }
+  thead th:first-child { text-align: left; }
+  thead th:nth-child(2) { text-align: left; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; cursor: pointer; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg3); }
+  td { padding: 9px 10px; text-align: right; vertical-align: middle; color: var(--text-dim); }
+  td:first-child { text-align: left; }
+  td:nth-child(2) { text-align: left; }
+
+  .rank { width: 32px; color: var(--text-muted); font-size: 13px; font-weight: 700; font-family: var(--display); text-align: center !important; }
+  .rank-1 { color: var(--gold); }
+  .rank-2 { color: #C0C0C0; }
+  .rank-3 { color: #CD7F32; }
+  .asset-name { font-family: var(--display); font-weight: 700; font-size: 14px; color: var(--text); letter-spacing: 0.3px; }
+  .asset-full { font-size: 10px; color: var(--text-muted); font-family: var(--display); font-weight: 400; display: block; margin-top: 1px; }
+  .price-cell { color: var(--text); font-weight: 600; font-size: 13px; }
+  .up { color: var(--green) !important; }
+  .dn { color: var(--red) !important; }
+  .arrow { font-size: 10px; margin-right: 2px; }
+
+  .badge { display: inline-block; font-family: var(--display); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px; letter-spacing: 0.5px; }
+  .badge-up { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .badge-dn { background: var(--red-dim); color: var(--red); border: 1px solid var(--red); }
+  .badge-neutral { background: #30363D; color: var(--text-dim); border: 1px solid var(--border); }
+
+  .spark-cell { width: 80px; }
+  svg.spark { display: block; }
+  .minibar-wrap { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+  .minibar { height: 4px; border-radius: 2px; background: var(--border); width: 60px; overflow: hidden; }
+  .minibar-fill { height: 100%; border-radius: 2px; }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .sidebar-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .sidebar-box-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); background: var(--bg3); display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+  .sidebar-box-header-left { display: flex; align-items: center; gap: 6px; }
+  .sidebar-box-header-left::before { content: ''; width: 2px; height: 12px; background: var(--gold); border-radius: 1px; display: block; }
+  .sidebar-box-header.blue .sidebar-box-header-left::before { background: var(--blue); }
+  .sidebar-box-header.green .sidebar-box-header-left::before { background: var(--green); }
+  .sidebar-box-header.purple .sidebar-box-header-left::before { background: var(--purple); }
+  .sidebar-box-header.red .sidebar-box-header-left::before { background: var(--red); }
+
+  .sidebar-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 12px; cursor: pointer; transition: background .1s; }
+  .sidebar-row:last-child { border-bottom: none; }
+  .sidebar-row:hover { background: var(--bg3); }
+  .sidebar-sym { font-family: var(--display); font-weight: 700; font-size: 13px; color: var(--text); }
+  .sidebar-full { font-size: 10px; color: var(--text-muted); }
+  .sidebar-right { text-align: right; }
+  .sidebar-price { font-weight: 600; color: var(--text); font-size: 12px; }
+
+  /* ─── STATS STRIP ─── */
+  .stats-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; position: relative; overflow: hidden; }
+  .stat-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .stat-card.green::after { background: var(--green); }
+  .stat-card.red::after { background: var(--red); }
+  .stat-card.gold::after { background: var(--gold); }
+  .stat-card.blue::after { background: var(--blue); }
+  .stat-label { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+  .stat-val { font-size: 22px; font-weight: 700; line-height: 1; font-family: var(--display); }
+  .stat-sub { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-family: var(--display); }
+
+  /* ─── MARKET TABS ─── */
+  .market-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .market-tab { font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: 0.5px; color: var(--text-muted); padding: 10px 18px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; transition: all .15s; text-transform: uppercase; white-space: nowrap; }
+  .market-tab:hover { color: var(--text); }
+  .market-tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+  /* ─── SECTOR BADGES ─── */
+  .sector { font-size: 9px; font-family: var(--display); font-weight: 700; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .s-tech { background: #1E3A5F; color: #58A6FF; }
+  .s-energy { background: #3D2B00; color: var(--gold); }
+  .s-fin { background: #1E3A30; color: var(--green); }
+  .s-health { background: #3D1E1E; color: var(--red); }
+  .s-crypto { background: #2D1E3D; color: #C084FC; }
+  .s-bond { background: #2B2B1E; color: #D4C890; }
+  .s-comod { background: #2B1E1E; color: #FFA07A; }
+  .s-us { background: #1E2B3A; color: #58A6FF; }
+  .s-eu { background: #1E2B1E; color: #00C896; }
+  .s-asia { background: #2D1E2D; color: #C084FC; }
+  .s-latam { background: #3D2B1E; color: #FFA07A; }
+  .s-vol { background: #3D1E1E; color: #FF4757; }
+  .s-forex { background: #1E3A4D; color: #7DC4FF; }
+  .s-rate { background: #2B3D1E; color: #90D4A0; }
+
+  /* ─── TRENDING STRIP ─── */
+  .trending-strip { max-width: 1400px; margin: 0 auto 16px; padding: 0 16px; }
+  .trending-label { font-family: var(--display); font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .trending-label::before { content: '🔥'; font-size: 12px; }
+  .trending-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .trending-cards::-webkit-scrollbar { height: 3px; }
+  .trending-cards::-webkit-scrollbar-track { background: var(--bg); }
+  .trending-cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .idx-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; min-width: 130px; cursor: pointer; transition: border-color .15s, background .15s; flex-shrink: 0; position: relative; overflow: hidden; }
+  .idx-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--border); transition: background .15s; }
+  .idx-card.up::after { background: var(--green); }
+  .idx-card.dn::after { background: var(--red); }
+  .idx-card:hover { background: var(--bg3); border-color: var(--text-muted); }
+  .idx-card-sym { font-family: var(--display); font-weight: 800; font-size: 13px; color: var(--text); letter-spacing: 0.3px; }
+  .idx-card-full { font-size: 9px; color: var(--text-muted); font-family: var(--display); margin-bottom: 6px; }
+  .idx-card-price { font-weight: 600; font-size: 13px; color: var(--text); font-family: var(--mono); }
+  .idx-card-chg { font-size: 11px; font-family: var(--mono); margin-top: 2px; }
+
+  /* ─── MERCADOS GLOBALES ─── */
+  .global-markets-section { max-width: 1400px; margin: 0 auto 24px; padding: 0 16px; }
+  .gm-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--border); flex-wrap: wrap; gap: 8px; }
+  .gm-title { font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: 1px; text-transform: uppercase; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .gm-title::before { content: ''; display: block; width: 3px; height: 18px; background: var(--blue); border-radius: 2px; }
+  .gm-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .gm-tab { font-family: var(--display); font-size: 12px; font-weight: 700; color: var(--text-muted); padding: 5px 12px; border-radius: 3px; cursor: pointer; border: 1px solid var(--border); letter-spacing: 0.5px; transition: all .15s; text-transform: uppercase; }
+  .gm-tab.active { color: var(--blue); border-color: var(--blue); background: var(--blue-dim); }
+  .gm-tab:hover:not(.active) { color: var(--text-dim); border-color: var(--text-muted); }
+  .gm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .gm-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .gm-panel-header { padding: 9px 14px; border-bottom: 1px solid var(--border); background: var(--bg3); font-family: var(--display); font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
+  .gm-panel-header-left { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dot-blue { background: var(--blue); }
+  .dot-gold { background: var(--gold); }
+  .dot-purple { background: var(--purple); }
+  .dot-green { background: var(--green); }
+  .dot-red { background: var(--red); }
+  .dot-teal { background: #2DD4BF; }
+  .gm-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+  .gm-row:last-child { border-bottom: none; }
+  .gm-row:hover { background: var(--bg3); }
+  .gm-row-left { display: flex; flex-direction: column; gap: 1px; }
+  .gm-name { font-family: var(--display); font-weight: 700; font-size: 13px; color: var(--text); }
+  .gm-sub { font-size: 10px; color: var(--text-muted); font-family: var(--display); }
+  .gm-row-right { text-align: right; }
+  .gm-price { font-weight: 600; font-size: 12px; color: var(--text); }
+  .gm-chg { font-size: 11px; margin-top: 1px; }
+
+  /* ─── SKELETON LOADER ─── */
+  .skeleton { animation: shimmer 1.5s infinite; background: linear-gradient(90deg, var(--bg3) 25%, var(--border) 50%, var(--bg3) 75%); background-size: 200% 100%; border-radius: 3px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .skel-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  .skel-row:last-child { border-bottom: none; }
+  .skel-num { width: 20px; height: 14px; }
+  .skel-name { width: 120px; height: 14px; }
+  .skel-sub { width: 80px; height: 10px; }
+  .skel-price { width: 70px; height: 14px; margin-left: auto; }
+  .skel-chg { width: 55px; height: 12px; }
+
+  /* ─── API BADGES ─── */
+  .api-badge { font-family: var(--display); font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px; background: var(--purple-dim); color: var(--purple); border: 1px solid var(--purple); }
+  .api-badge.live { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+  .api-badge.static { background: var(--bg3); color: var(--text-muted); border-color: var(--border); }
+  .last-update { font-family: var(--display); font-size: 9px; color: var(--text-muted); }
+
+  /* ─── TABLE HEADER CONTEXT ─── */
+  .table-context { font-family: var(--display); font-size: 11px; color: var(--text-muted); padding: 6px 12px; background: var(--bg3); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+
+  footer { border-top: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--text-muted); font-family: var(--display); letter-spacing: 0.5px; margin-top: 20px; }
+
+  @media (max-width: 1100px) { .gm-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } .stats-strip { grid-template-columns: repeat(2,1fr); } nav { display: none; } .gm-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="ticker-wrap">
+  <div class="ticker-label">EN VIVO</div>
+  <div class="ticker-track" id="ticker"><span class="ticker-item"><span class="sym">Cargando...</span></span></div>
+</div>
+
+<header>
+  <div>
+    <div class="logo">Fin<span>Ranking</span></div>
+    <div class="logo-sub">MERCADOS · ACTIVOS · RENDIMIENTOS</div>
+  </div>
+  <nav>
+    <a class="active" onclick="setMarketView('acciones',this)">Acciones</a>
+    <a onclick="setMarketView('bonos',this)">Bonos</a>
+    <a onclick="setMarketView('cripto',this)">Cripto</a>
+    <a onclick="setMarketView('commodities',this)">Commodities</a>
+    <a onclick="setMarketView('cedears',this)">CEDEARs</a>
+    <a onclick="setMarketView('fci',this)">FCI</a>
+  </nav>
+  <div class="header-right">
+    <div class="refresh-info" id="refresh-info">Actualizando...</div>
+    <div class="live-badge"><div class="live-dot"></div>MERCADO ABIERTO</div>
+  </div>
+</header>
+
+<div style="max-width:1400px;margin:0 auto;padding:16px 16px 0;">
+  <div class="stats-strip">
+    <div class="stat-card green">
+      <div class="stat-label">Merval hoy</div>
+      <div class="stat-val up">+2.47%</div>
+      <div class="stat-sub">2,341,890 pts · Vol. alto</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Dólar MEP</div>
+      <div class="stat-val dn">$1,247.30</div>
+      <div class="stat-sub">−0.8% vs ayer</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-label">Riesgo País</div>
+      <div class="stat-val" style="color:var(--gold)">1,482</div>
+      <div class="stat-sub">−34 bps · Mínimo mensual</div>
+    </div>
+    <div class="stat-card blue" id="btc-stat-card">
+      <div class="stat-label">Bitcoin</div>
+      <div class="stat-val" id="btc-stat-val" style="color:var(--blue)">—</div>
+      <div class="stat-sub" id="btc-stat-sub">Cargando...</div>
+    </div>
+  </div>
+
+  <div class="market-tabs">
+    <div class="market-tab active" onclick="setMarketTab(this,'lideres')">Panel Líderes</div>
+    <div class="market-tab" onclick="setMarketTab(this,'general')">Panel General</div>
+    <div class="market-tab" onclick="setMarketTab(this,'cedears')">CEDEARs</div>
+    <div class="market-tab" onclick="setMarketTab(this,'on')">ON Corporativas</div>
+    <div class="market-tab" onclick="setMarketTab(this,'bonos')">Bonos Soberanos</div>
+    <div class="market-tab" onclick="setMarketTab(this,'fci')">FCI</div>
+    <div class="market-tab" onclick="setMarketTab(this,'cripto')">Cripto</div>
+    <div class="market-tab" onclick="setMarketTab(this,'commodities')">Commodities</div>
+  </div>
+</div>
+
+<div class="trending-strip">
+  <div class="trending-label">Índices más seguidos</div>
+  <div class="trending-cards" id="trending-cards"></div>
+</div>
+
+<div class="main-grid">
+  <div class="main-col">
+
+    <div>
+      <div class="section-header">
+        <div class="section-title" id="winners-title">Tabla de Posiciones</div>
+        <div class="section-tabs" id="time-tabs">
+          <div class="tab active" onclick="setTimeTab(this,'1d')">Hoy</div>
+          <div class="tab" onclick="setTimeTab(this,'7d')">1 sem</div>
+          <div class="tab" onclick="setTimeTab(this,'30d')">1 mes</div>
+          <div class="tab" onclick="setTimeTab(this,'1y')">1 año</div>
+        </div>
+      </div>
+      <div class="table-box">
+        <div class="table-context" id="winners-context">
+          <span id="winners-context-label">Panel Líderes BYMA — Acciones ARG</span>
+          <span class="api-badge static" id="winners-api-badge">Datos demo</span>
+        </div>
+        <table>
+          <thead id="winners-thead">
+            <tr>
+              <th class="rank">#</th>
+              <th>Activo</th>
+              <th>Sector</th>
+              <th>Precio</th>
+              <th>Var. %</th>
+              <th>Var. $</th>
+              <th>Volumen</th>
+              <th>Máx 52s</th>
+              <th>Mín 52s</th>
+              <th>Tendencia</th>
+            </tr>
+          </thead>
+          <tbody id="main-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-header">
+        <div class="section-title red" id="losers-title">Zona de Descenso — Mayores Caídas</div>
+        <div class="section-tabs">
+          <div class="tab active">Hoy</div>
+          <div class="tab">1 sem</div>
+          <div class="tab">1 mes</div>
+        </div>
+      </div>
+      <div class="table-box">
+        <div class="table-context" id="losers-context">
+          <span id="losers-context-label">Peores rendimientos del panel</span>
+          <span class="api-badge static" id="losers-api-badge">Datos demo</span>
+        </div>
+        <table>
+          <thead id="losers-thead">
+            <tr>
+              <th class="rank">#</th>
+              <th>Activo</th>
+              <th>Sector</th>
+              <th>Precio</th>
+              <th>Var. %</th>
+              <th>Var. $</th>
+              <th>Volumen</th>
+              <th>Dist. Máx.</th>
+              <th>Tendencia</th>
+            </tr>
+          </thead>
+          <tbody id="losers-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-box">
+      <div class="sidebar-box-header">
+        <div class="sidebar-box-header-left">Calendario de Eventos</div>
+      </div>
+      <div id="events-list"></div>
+    </div>
+    <div class="sidebar-box">
+      <div class="sidebar-box-header">
+        <div class="sidebar-box-header-left">Top Volumen</div>
+      </div>
+      <div id="volume-list"></div>
+    </div>
+    <div class="sidebar-box">
+      <div class="sidebar-box-header blue">
+        <div class="sidebar-box-header-left">Índices Globales</div>
+      </div>
+      <div id="indices-sidebar"></div>
+    </div>
+    <div class="sidebar-box">
+      <div class="sidebar-box-header">
+        <div class="sidebar-box-header-left">Divisas</div>
+      </div>
+      <div id="fx-list"></div>
+    </div>
+    <div class="sidebar-box">
+      <div class="sidebar-box-header purple">
+        <div class="sidebar-box-header-left">Cripto</div>
+        <span class="api-badge live" id="crypto-sidebar-badge">CoinGecko Live</span>
+      </div>
+      <div id="crypto-list"></div>
+    </div>
+    <div class="sidebar-box">
+      <div class="sidebar-box-header green">
+        <div class="sidebar-box-header-left">Commodities</div>
+      </div>
+      <div id="commodities-sidebar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MERCADOS GLOBALES -->
+<div class="global-markets-section">
+  <div class="gm-header">
+    <div class="gm-title">Mercados Globales</div>
+    <div class="gm-tabs">
+      <div class="gm-tab active" onclick="setGmTab(this,'all')">Todo</div>
+      <div class="gm-tab" onclick="setGmTab(this,'indices')">Índices</div>
+      <div class="gm-tab" onclick="setGmTab(this,'commodities')">Commodities</div>
+      <div class="gm-tab" onclick="setGmTab(this,'crypto')">Criptomonedas</div>
+      <div class="gm-tab" onclick="setGmTab(this,'forex')">Forex</div>
+      <div class="gm-tab" onclick="setGmTab(this,'bonds')">Bonos del Tesoro</div>
+      <div class="gm-tab" onclick="setGmTab(this,'rates')">Tasas de Interés</div>
+    </div>
+  </div>
+  <div class="gm-grid" id="gm-grid"></div>
+</div>
+
+<footer>
+  <div>© 2026 FinRanking · Cripto: CoinGecko API · Acciones: datos demo · Fines informativos</div>
+  <div>Buenos Aires · ARG · NYSE · NASDAQ · BYMA · LSE · TSE</div>
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════
+
+let currentMarket = 'lideres';   // active market tab
+let currentTimeframe = '1d';     // active time tab
+let cryptoData = [];             // live from CoinGecko
+let cryptoLastUpdate = null;
+let refreshInterval = null;
+
+// ══════════════════════════════════════════════════════════════════
+// STATIC DATA
+// ══════════════════════════════════════════════════════════════════
+
+const DATA = {
+  lideres: {
+    label: 'Panel Líderes BYMA — Acciones ARG',
+    losersLabel: 'Peores rendimientos — Panel Líderes',
+    api: 'Datos demo',
+    apiClass: 'static',
+    winners: [
+      { sym:'GGAL', full:'Grupo Financiero Galicia', sector:'fin',    price:7840,  chg:+8.32, vol:'$4.2B', hi52:8100, lo52:3200 },
+      { sym:'BMA',  full:'Banco Macro S.A.',         sector:'fin',    price:6210,  chg:+6.81, vol:'$2.9B', hi52:6800, lo52:2900 },
+      { sym:'LOMA', full:'Loma Negra',               sector:'tech',   price:2980,  chg:+5.44, vol:'$1.1B', hi52:3200, lo52:1400 },
+      { sym:'TXAR', full:'Ternium Argentina',        sector:'energy', price:1450,  chg:+4.97, vol:'$890M', hi52:1600, lo52:700  },
+      { sym:'SUPV', full:'Grupo Supervielle',        sector:'fin',    price:3210,  chg:+4.53, vol:'$670M', hi52:3600, lo52:1100 },
+      { sym:'VALO', full:'Grupo Financiero Valores', sector:'fin',    price:1890,  chg:+3.88, vol:'$540M', hi52:2100, lo52:890  },
+      { sym:'PAMP', full:'Pampa Energía',            sector:'energy', price:5620,  chg:+3.21, vol:'$1.4B', hi52:6000, lo52:2800 },
+      { sym:'YPF',  full:'YPF S.A.',                sector:'energy', price:37200, chg:+2.84, vol:'$3.1B', hi52:41000,lo52:18000},
+      { sym:'CEPU', full:'Central Puerto',           sector:'energy', price:2140,  chg:+2.10, vol:'$480M', hi52:2400, lo52:1050 },
+      { sym:'ALUA', full:'Aluar',                    sector:'comod',  price:1320,  chg:+1.74, vol:'$390M', hi52:1500, lo52:720  },
+    ],
+    losers: [
+      { sym:'MOLI', full:'Molinos Río de la Plata', sector:'health', price:6320, chg:-5.14, vol:'$210M', distMax:-38 },
+      { sym:'IRSA', full:'IRSA Inv. y Rep.',         sector:'fin',    price:3120, chg:-4.62, vol:'$380M', distMax:-44 },
+      { sym:'HARG', full:'MetroGAS',                sector:'energy', price:1780, chg:-3.88, vol:'$170M', distMax:-29 },
+      { sym:'COME', full:'Sociedad Comercial del P.',sector:'tech',   price:890,  chg:-2.91, vol:'$130M', distMax:-52 },
+      { sym:'BOLT', full:'Boldt',                   sector:'tech',   price:1240, chg:-2.43, vol:'$95M',  distMax:-34 },
+    ],
+    thead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Máx 52s</th><th>Mín 52s</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Dist. Máx.</th><th>Tendencia</th></tr>`,
+  },
+  general: {
+    label: 'Panel General BYMA — Acciones ARG',
+    losersLabel: 'Peores rendimientos — Panel General',
+    api: 'Datos demo',
+    apiClass: 'static',
+    winners: [
+      { sym:'CRES', full:'Cresud S.A.',      sector:'health', price:4890, chg:+6.10, vol:'$310M', hi52:5400, lo52:2200 },
+      { sym:'EDN',  full:'Edenor',           sector:'energy', price:1860, chg:+4.87, vol:'$290M', hi52:2100, lo52:910  },
+      { sym:'DGCU2',full:'Distribuidora Gas',sector:'energy', price:920,  chg:+3.95, vol:'$180M', hi52:1100, lo52:450  },
+      { sym:'BYMA', full:'Bolsas y Mercados',sector:'fin',    price:2810, chg:+3.44, vol:'$220M', hi52:3200, lo52:1300 },
+      { sym:'SEMI', full:'Sociedad de Infraestructura',sector:'tech',price:540,chg:+2.88,vol:'$90M',hi52:620,lo52:280 },
+      { sym:'TRAN', full:'Transener',        sector:'energy', price:1340, chg:+2.41, vol:'$160M', hi52:1550, lo52:680  },
+      { sym:'GBAN', full:'Gas Bs As Norte',  sector:'energy', price:880,  chg:+1.93, vol:'$120M', hi52:1020, lo52:420  },
+      { sym:'PATA', full:'Banco Patagonia',  sector:'fin',    price:2140, chg:+1.62, vol:'$140M', hi52:2400, lo52:1100 },
+    ],
+    losers: [
+      { sym:'LONG', full:'Longvie S.A.',     sector:'tech',   price:310,  chg:-6.21, vol:'$45M',  distMax:-58 },
+      { sym:'ROSE', full:'Garovaglio',       sector:'health', price:2200, chg:-4.88, vol:'$70M',  distMax:-36 },
+      { sym:'DICO', full:'Distribuidora CO', sector:'energy', price:1140, chg:-3.50, vol:'$55M',  distMax:-42 },
+      { sym:'AGRO', full:'Agrometal',        sector:'comod',  price:780,  chg:-2.74, vol:'$38M',  distMax:-29 },
+      { sym:'FERR', full:'Ferrum',           sector:'tech',   price:415,  chg:-1.88, vol:'$22M',  distMax:-45 },
+    ],
+    thead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Máx 52s</th><th>Mín 52s</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Dist. Máx.</th><th>Tendencia</th></tr>`,
+  },
+  cedears: {
+    label: 'CEDEARs — Certificados de Depósito',
+    losersLabel: 'CEDEARs con mayores caídas',
+    api: 'Datos demo',
+    apiClass: 'static',
+    winners: [
+      { sym:'NVDA', full:'NVIDIA Corp.',        sector:'tech',   price:128400, chg:+9.14, vol:'$2.1B', hi52:145000,lo52:60000 },
+      { sym:'MELI', full:'MercadoLibre Inc.',   sector:'tech',   price:89200,  chg:+5.82, vol:'$1.4B', hi52:97000, lo52:42000 },
+      { sym:'AAPL', full:'Apple Inc.',          sector:'tech',   price:58300,  chg:+3.41, vol:'$980M', hi52:62000, lo52:32000 },
+      { sym:'MSFT', full:'Microsoft Corp.',     sector:'tech',   price:114200, chg:+2.88, vol:'$870M', hi52:120000,lo52:64000 },
+      { sym:'GOOGL',full:'Alphabet Inc.',       sector:'tech',   price:102700, chg:+2.34, vol:'$760M', hi52:110000,lo52:55000 },
+      { sym:'AMZN', full:'Amazon.com Inc.',     sector:'tech',   price:96400,  chg:+1.94, vol:'$690M', hi52:104000,lo52:50000 },
+      { sym:'TSLA', full:'Tesla Inc.',          sector:'energy', price:61800,  chg:+1.52, vol:'$580M', hi52:72000, lo52:28000 },
+      { sym:'META', full:'Meta Platforms',      sector:'tech',   price:170200, chg:+1.18, vol:'$510M', hi52:182000,lo52:88000 },
+    ],
+    losers: [
+      { sym:'BABA', full:'Alibaba Group',       sector:'tech',   price:42100, chg:-4.32, vol:'$320M', distMax:-52 },
+      { sym:'DIS',  full:'The Walt Disney Co.', sector:'health', price:32800, chg:-3.18, vol:'$220M', distMax:-38 },
+      { sym:'INTC', full:'Intel Corp.',         sector:'tech',   price:21400, chg:-2.74, vol:'$180M', distMax:-61 },
+      { sym:'PFE',  full:'Pfizer Inc.',         sector:'health', price:18900, chg:-1.92, vol:'$150M', distMax:-44 },
+      { sym:'BA',   full:'Boeing Co.',          sector:'tech',   price:48200, chg:-1.41, vol:'$120M', distMax:-35 },
+    ],
+    thead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio (ARS)</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Máx 52s</th><th>Mín 52s</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio (ARS)</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Dist. Máx.</th><th>Tendencia</th></tr>`,
+  },
+  on: {
+    label: 'Obligaciones Negociables Corporativas',
+    losersLabel: 'ON con mayor caída de precio',
+    api: 'Datos demo',
+    apiClass: 'static',
+    winners: [
+      { sym:'YPF 2029',  full:'YPF S.A. · ON Clase XXXIII',   sector:'bond', price:98.40, chg:+1.24, vol:'$82M',  hi52:102,  lo52:84   },
+      { sym:'PAMPA 2027',full:'Pampa Energía · ON Serie 7',    sector:'bond', price:97.20, chg:+0.88, vol:'$61M',  hi52:100.5,lo52:88   },
+      { sym:'GALI 2026', full:'Banco Galicia · ON Clase XII',  sector:'bond', price:99.10, chg:+0.72, vol:'$54M',  hi52:101,  lo52:92   },
+      { sym:'IRCP 2028', full:'IRSA Prop. Comerciales ON',     sector:'bond', price:95.50, chg:+0.55, vol:'$38M',  hi52:99,   lo52:86   },
+      { sym:'TECO 2027', full:'Telecom Argentina · ON',        sector:'bond', price:96.80, chg:+0.42, vol:'$29M',  hi52:100,  lo52:88   },
+    ],
+    losers: [
+      { sym:'COME 2026', full:'Soc. Comercial del Plata ON',  sector:'bond', price:91.20, chg:-1.88, vol:'$18M',  distMax:-12 },
+      { sym:'LEVE 2027', full:'Ledesma S.A. ON',             sector:'bond', price:93.40, chg:-1.21, vol:'$12M',  distMax:-9  },
+      { sym:'MSC 2027',  full:'MSC Mediterranean Ship. ON',   sector:'bond', price:94.10, chg:-0.94, vol:'$9M',   distMax:-8  },
+      { sym:'TRAN 2025', full:'Transener ON Serie II',        sector:'bond', price:98.30, chg:-0.62, vol:'$7M',   distMax:-4  },
+    ],
+    thead: `<tr><th class="rank">#</th><th>Activo</th><th>Tipo</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Máx 52s</th><th>Mín 52s</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Activo</th><th>Tipo</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Dist. Máx.</th><th>Tendencia</th></tr>`,
+  },
+  bonos: {
+    label: 'Bonos Soberanos Argentinos',
+    losersLabel: 'Bonos con mayor caída de precio',
+    api: 'Datos demo',
+    apiClass: 'static',
+    winners: [
+      { sym:'GD30',  full:'Global 2030 USD Ley Ext.',   sector:'bond', price:61.80, chg:+2.14, vol:'$340M', hi52:68,   lo52:32  },
+      { sym:'AL30',  full:'Bonar 2030 USD Ley ARG',     sector:'bond', price:57.40, chg:+1.88, vol:'$280M', hi52:62,   lo52:28  },
+      { sym:'GD35',  full:'Global 2035 USD Ley Ext.',   sector:'bond', price:52.20, chg:+1.54, vol:'$210M', hi52:58,   lo52:24  },
+      { sym:'GD41',  full:'Global 2041 USD Ley Ext.',   sector:'bond', price:55.90, chg:+1.22, vol:'$190M', hi52:61,   lo52:26  },
+      { sym:'LECAP', full:'Letra del Tesoro Capitaliz.', sector:'bond', price:98.40, chg:+0.84, vol:'$120M', hi52:100,  lo52:92  },
+      { sym:'S31E5', full:'Letra Tesoro Ene 2025',      sector:'bond', price:99.10, chg:+0.61, vol:'$89M',  hi52:100,  lo52:95  },
+    ],
+    losers: [
+      { sym:'AO20',  full:'Bonar 2020',                 sector:'bond', price:44.10, chg:-3.44, vol:'$55M',  distMax:-62 },
+      { sym:'PARA',  full:'Par USD Ley Extranjera',     sector:'bond', price:38.20, chg:-2.18, vol:'$42M',  distMax:-58 },
+      { sym:'DISA',  full:'Discount USD Ley Ext.',      sector:'bond', price:72.40, chg:-1.54, vol:'$38M',  distMax:-28 },
+      { sym:'BDC24', full:'Bono Dual 2024',             sector:'bond', price:96.80, chg:-0.92, vol:'$28M',  distMax:-6  },
+    ],
+    thead: `<tr><th class="rank">#</th><th>Activo</th><th>Tipo</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Máx 52s</th><th>Mín 52s</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Activo</th><th>Tipo</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Dist. Máx.</th><th>Tendencia</th></tr>`,
+  },
+  fci: {
+    label: 'Fondos Comunes de Inversión — Renta',
+    losersLabel: 'FCI con peor rendimiento',
+    api: 'Datos demo',
+    apiClass: 'static',
+    winners: [
+      { sym:'SCHRO G', full:'Schroder Retorno Total',     sector:'bond', price:214.82, chg:+8.44, vol:'$1.2B', hi52:224, lo52:98  },
+      { sym:'SUPER-AR',full:'Superfondo Ahorro Plus',     sector:'fin',  price:189.34, chg:+7.91, vol:'$980M', hi52:198, lo52:88  },
+      { sym:'SBS-MIX', full:'SBS Mix Renta Variable',    sector:'fin',  price:301.12, chg:+6.88, vol:'$810M', hi52:318, lo52:142 },
+      { sym:'MEGAFIX', full:'Megainversión Renta Fija',  sector:'bond', price:142.66, chg:+5.54, vol:'$670M', hi52:151, lo52:66  },
+      { sym:'IAM PREM',full:'IAM Premier Ahorro',        sector:'bond', price:178.90, chg:+4.82, vol:'$540M', hi52:188, lo52:82  },
+    ],
+    losers: [
+      { sym:'ALPHA-E', full:'Alpha Export Plus',         sector:'fin',  price:88.40, chg:-3.12, vol:'$180M', distMax:-24 },
+      { sym:'MAVE-PL', full:'Maverick Placements',      sector:'fin',  price:112.20,chg:-2.44, vol:'$120M', distMax:-18 },
+      { sym:'RJ-DOLAR',full:'RJ Renta Dólar',           sector:'bond', price:94.80, chg:-1.88, vol:'$90M',  distMax:-12 },
+    ],
+    thead: `<tr><th class="rank">#</th><th>Fondo</th><th>Tipo</th><th>Cuotaparte</th><th>Rent. %</th><th>Var. $</th><th>Patrimonio</th><th>Máx 52s</th><th>Mín 52s</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Fondo</th><th>Tipo</th><th>Cuotaparte</th><th>Rent. %</th><th>Var. $</th><th>Patrimonio</th><th>Dist. Máx.</th><th>Tendencia</th></tr>`,
+  },
+  commodities: {
+    label: 'Commodities — Mercados Internacionales',
+    losersLabel: 'Commodities con mayor caída',
+    api: 'Datos demo',
+    apiClass: 'static',
+    winners: [
+      { sym:'XAU',  full:'Oro · Spot USD/oz',          sector:'comod', price:2340.50, chg:+1.84, vol:'$12.4B', hi52:2450,  lo52:1820 },
+      { sym:'XAG',  full:'Plata · Spot USD/oz',        sector:'comod', price:29.44,   chg:+2.14, vol:'$4.8B',  hi52:32.5,  lo52:21.4 },
+      { sym:'COPPER',full:'Cobre · LME USD/lb',        sector:'comod', price:4.52,    chg:+1.22, vol:'$3.2B',  hi52:5.1,   lo52:3.6  },
+      { sym:'WHEAT', full:'Trigo · CBOT USD/bushel',   sector:'comod', price:549.25,  chg:+0.94, vol:'$1.8B',  hi52:620,   lo52:480  },
+      { sym:'SOJA',  full:'Soja · CBOT USD/bushel',    sector:'comod', price:1184.50, chg:+0.74, vol:'$2.1B',  hi52:1280,  lo52:980  },
+    ],
+    losers: [
+      { sym:'WTI',   full:'Petróleo WTI · USD/barril', sector:'energy', price:78.32, chg:-1.44, vol:'$18.2B', distMax:-24 },
+      { sym:'BRENT', full:'Petróleo Brent · USD/bar.', sector:'energy', price:82.18, chg:-1.22, vol:'$14.4B', distMax:-19 },
+      { sym:'NG',    full:'Gas Natural · Henry Hub',   sector:'energy', price:2.67,  chg:-2.80, vol:'$3.4B',  distMax:-38 },
+      { sym:'CORN',  full:'Maíz · CBOT USD/bushel',   sector:'comod',  price:434.00,chg:-0.64, vol:'$1.6B',  distMax:-12 },
+    ],
+    thead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Máx 52s</th><th>Mín 52s</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio</th><th>Var. %</th><th>Var. $</th><th>Volumen</th><th>Dist. Máx.</th><th>Tendencia</th></tr>`,
+  },
+};
+
+const EVENTS = [
+  { date:'16 JUN', time:'10:00', desc:'Balances Q1 — YPF', type:'balance' },
+  { date:'17 JUN', time:'15:00', desc:'BCRA — Tasa política monetaria', type:'macro' },
+  { date:'19 JUN', time:'09:00', desc:'INDEC — IPC Mayo', type:'macro' },
+  { date:'20 JUN', time:'Cierre', desc:'Vencimiento ON Pampa Energía', type:'vcto' },
+  { date:'23 JUN', time:'11:00', desc:'Licitación Letras del Tesoro', type:'balance' },
+  { date:'25 JUN', time:'14:30', desc:'FED — Minutas reunión FOMC', type:'macro' },
+];
+
+const TOP_VOL = [
+  { sym:'YPF',  price:'$37,200', vol:'$3.1B', chg:+2.84 },
+  { sym:'GGAL', price:'$7,840',  vol:'$4.2B', chg:+8.32 },
+  { sym:'BMA',  price:'$6,210',  vol:'$2.9B', chg:+6.81 },
+  { sym:'PAMP', price:'$5,620',  vol:'$1.4B', chg:+3.21 },
+  { sym:'TXAR', price:'$1,450',  vol:'$890M', chg:+4.97 },
+];
+
+const FX = [
+  { sym:'USD MEP',     price:'$1,247.30', chg:-0.82 },
+  { sym:'USD CCL',     price:'$1,261.50', chg:-1.14 },
+  { sym:'USD Oficial', price:'$1,040.00', chg:+0.10 },
+  { sym:'USD Cripto',  price:'$1,255.00', chg:-0.95 },
+  { sym:'EUR',         price:'$1,341.00', chg:-1.20 },
+  { sym:'BRL 100',     price:'$222.40',   chg:+0.34 },
+];
+
+const TRENDING_INDICES = [
+  { sym:'S&P 500',     full:'Standard & Poors 500',  price:'5,308.13',  chg:+0.74, region:'us'   },
+  { sym:'NASDAQ',      full:'Nasdaq Composite',       price:'16,742.39', chg:+1.12, region:'us'   },
+  { sym:'Dow Jones',   full:'DJIA',                   price:'38,852.27', chg:+0.40, region:'us'   },
+  { sym:'Russell 2000',full:'Small Cap US',           price:'2,083.55',  chg:-0.31, region:'us'   },
+  { sym:'VIX',         full:'Volatilidad CBOE',       price:'13.42',     chg:-4.88, region:'vol'  },
+  { sym:'Nikkei 225',  full:'Bolsa de Tokio',         price:'38,229.11', chg:+1.58, region:'asia' },
+  { sym:'DAX',         full:'Deutsche Börse',         price:'18,612.40', chg:+0.63, region:'eu'   },
+  { sym:'FTSE 100',    full:'London Stock Exchange',  price:'8,231.05',  chg:-0.22, region:'eu'   },
+  { sym:'Hang Seng',   full:'Hong Kong Stock Exch.',  price:'18,503.43', chg:-0.94, region:'asia' },
+  { sym:'S&P Merval',  full:'Bolsa Buenos Aires',     price:'2,341,890', chg:+2.47, region:'latam'},
+];
+
+const COMMODITIES_SIDEBAR = [
+  { sym:'Oro',        full:'XAU/USD',    price:'$2,340', chg:+0.82 },
+  { sym:'Plata',      full:'XAG/USD',    price:'$29.44', chg:+1.34 },
+  { sym:'Petróleo',   full:'WTI Barril', price:'$78.32', chg:-0.64 },
+  { sym:'Gas Natural',full:'Henry Hub',  price:'$2.67',  chg:-1.20 },
+];
+
+const GM_DATA = {
+  indices: {
+    label: 'Índices Bursátiles', dot: 'dot-blue',
+    items: [
+      { name:'S&P 500',      sub:'EE.UU.',       price:'5,308.13',  chg:+0.74 },
+      { name:'NASDAQ',       sub:'EE.UU.',        price:'16,742.39', chg:+1.12 },
+      { name:'Dow Jones',    sub:'DJIA · EE.UU.', price:'38,852.27', chg:+0.40 },
+      { name:'Russell 2000', sub:'Small Cap US',  price:'2,083.55',  chg:-0.31 },
+      { name:'VIX',          sub:'Volatilidad',   price:'13.42',     chg:-4.88 },
+      { name:'Nikkei 225',   sub:'Japón',         price:'38,229.11', chg:+1.58 },
+      { name:'DAX',          sub:'Alemania',      price:'18,612.40', chg:+0.63 },
+      { name:'FTSE 100',     sub:'Reino Unido',   price:'8,231.05',  chg:-0.22 },
+      { name:'Hang Seng',    sub:'Hong Kong',     price:'18,503.43', chg:-0.94 },
+      { name:'S&P Merval',   sub:'Argentina',     price:'2,341,890', chg:+2.47 },
+      { name:'EuroStoxx 50', sub:'Europa',        price:'4,912.18',  chg:+0.51 },
+      { name:'CAC 40',       sub:'Francia',       price:'7,992.11',  chg:+0.38 },
+    ]
+  },
+  commodities: {
+    label: 'Commodities', dot: 'dot-gold',
+    items: [
+      { name:'Oro',        sub:'XAU/USD · Spot',    price:'2,340.50', chg:+0.82 },
+      { name:'Plata',      sub:'XAG/USD · Spot',    price:'29.44',    chg:+1.34 },
+      { name:'Petróleo',   sub:'WTI · Barril',      price:'78.32',    chg:-0.64 },
+      { name:'Brent',      sub:'ICE · Barril',      price:'82.18',    chg:-0.51 },
+      { name:'Gas Natural',sub:'Henry Hub · MMBtu', price:'2.67',     chg:-1.20 },
+      { name:'Cobre',      sub:'LME · libra',       price:'4.52',     chg:+0.44 },
+      { name:'Trigo',      sub:'CBOT · bushel',     price:'549.25',   chg:-0.73 },
+      { name:'Maíz',       sub:'CBOT · bushel',     price:'434.00',   chg:-0.28 },
+    ]
+  },
+  crypto: {
+    label: 'Criptomonedas',
+    dot: 'dot-purple',
+    live: true,
+    items: [] // filled from CoinGecko
+  },
+  forex: {
+    label: 'Forex · Divisas Globales', dot: 'dot-teal',
+    items: [
+      { name:'EUR/USD', sub:'Euro / Dólar',       price:'1.0841',   chg:+0.22 },
+      { name:'GBP/USD', sub:'Libra / Dólar',      price:'1.2693',   chg:+0.14 },
+      { name:'USD/JPY', sub:'Dólar / Yen',        price:'156.84',   chg:-0.31 },
+      { name:'USD/CHF', sub:'Dólar / Franco',     price:'0.9012',   chg:-0.10 },
+      { name:'AUD/USD', sub:'Dólar AUS / Dólar',  price:'0.6612',   chg:+0.08 },
+      { name:'USD/CAD', sub:'Dólar / Dólar CAN',  price:'1.3621',   chg:+0.05 },
+      { name:'USD/BRL', sub:'Dólar / Real',        price:'5.0840',   chg:+0.44 },
+      { name:'USD/ARS', sub:'Dólar / Peso ARG',    price:'1,040.00', chg:+0.10 },
+    ]
+  },
+  bonds: {
+    label: 'Bonos del Tesoro USA', dot: 'dot-green',
+    items: [
+      { name:'T-Bill 3M',  sub:'Tesoro 3 meses',    price:'5.24%', chg:+0.01 },
+      { name:'T-Bill 6M',  sub:'Tesoro 6 meses',    price:'5.18%', chg:-0.01 },
+      { name:'T-Note 2Y',  sub:'Tesoro 2 años',     price:'4.88%', chg:-0.03 },
+      { name:'T-Note 5Y',  sub:'Tesoro 5 años',     price:'4.54%', chg:-0.04 },
+      { name:'T-Note 10Y', sub:'Tesoro 10 años',    price:'4.42%', chg:-0.05 },
+      { name:'T-Bond 30Y', sub:'Tesoro 30 años',    price:'4.58%', chg:-0.03 },
+      { name:'TIPS 10Y',   sub:'Inflación ajustada',price:'2.11%', chg:-0.02 },
+    ]
+  },
+  rates: {
+    label: 'Tasas de Interés', dot: 'dot-red',
+    items: [
+      { name:'Fed Funds',   sub:'Reserva Federal USA',   price:'5.25-5.50%', chg:0    },
+      { name:'BCE',         sub:'Banco Central Europeo', price:'4.50%',      chg:-0.25},
+      { name:'BOE',         sub:'Banco de Inglaterra',   price:'5.25%',      chg:0    },
+      { name:'BOJ',         sub:'Banco de Japón',        price:'0.10%',      chg:+0.10},
+      { name:'BCRA',        sub:'Banco Central ARG',     price:'50.00%',     chg:-10  },
+      { name:'Banco China', sub:'PBoC · 1Y LPR',        price:'3.45%',      chg:0    },
+      { name:'SOFR',        sub:'Tasa referencia USD',   price:'5.31%',      chg:+0.01},
+    ]
+  }
+};
+
+// ══════════════════════════════════════════════════════════════════
+// COINGECKO API
+// ══════════════════════════════════════════════════════════════════
+
+const COINGECKO_IDS = 'bitcoin,ethereum,solana,binancecoin,ripple,cardano,avalanche-2,tether,usd-coin,dogecoin,polkadot,chainlink,uniswap,litecoin,stellar';
+
+async function fetchCryptoData() {
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${COINGECKO_IDS}&order=market_cap_desc&per_page=15&page=1&sparkline=false&price_change_percentage=24h,7d,30d,1y`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('CoinGecko error ' + res.status);
+    const data = await res.json();
+    cryptoData = data;
+    cryptoLastUpdate = new Date();
+    onCryptoLoaded();
+    updateRefreshInfo();
+    return data;
+  } catch(e) {
+    console.warn('CoinGecko fetch failed:', e.message);
+    showCryptoError();
+    return null;
+  }
+}
+
+function onCryptoLoaded() {
+  // Update sidebar
+  renderCryptoSidebar();
+  // Update BTC stat card
+  const btc = cryptoData.find(c => c.id === 'bitcoin');
+  if (btc) {
+    const el = document.getElementById('btc-stat-val');
+    const sub = document.getElementById('btc-stat-sub');
+    if(el) { el.textContent = '$' + fmtUSD(btc.current_price); el.className = 'stat-val ' + (btc.price_change_percentage_24h >= 0 ? 'up' : 'dn'); }
+    if(sub) sub.textContent = (btc.price_change_percentage_24h >= 0 ? '+' : '') + btc.price_change_percentage_24h.toFixed(2) + '% · 24h';
+  }
+  // Update GM crypto panel
+  GM_DATA.crypto.items = cryptoData.map(c => ({
+    name: c.name,
+    sub: c.symbol.toUpperCase() + '/USD',
+    price: fmtUSD(c.current_price),
+    chg: +(c.price_change_percentage_24h || 0).toFixed(2)
+  }));
+  // Refresh tables/gm if cripto panel is active
+  if (currentMarket === 'cripto') renderMainTables();
+  renderGmGrid();
+  // Rebuild ticker
+  buildTicker();
+}
+
+function cryptoChgForTimeframe(coin) {
+  const map = {
+    '1d': coin.price_change_percentage_24h,
+    '7d': coin.price_change_percentage_7d_in_currency,
+    '30d': coin.price_change_percentage_30d_in_currency,
+    '1y': coin.price_change_percentage_1y_in_currency,
+  };
+  return +(map[currentTimeframe] || coin.price_change_percentage_24h || 0).toFixed(2);
+}
+
+function showCryptoError() {
+  const badge = document.getElementById('crypto-sidebar-badge');
+  if(badge) { badge.textContent = 'Error de conexión'; badge.className = 'api-badge'; badge.style.cssText='background:var(--red-dim);color:var(--red);border-color:var(--red)'; }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════
+
+function fmt(n) {
+  if(isNaN(n)) return '—';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtUSD(n) {
+  if(n >= 1000) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if(n >= 1) return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  return n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+}
+function chgHtml(c, showArrow=true) {
+  if(c === null || c === undefined || isNaN(c)) return '<span style="color:var(--text-muted)">—</span>';
+  const cls = c >= 0 ? 'up' : 'dn';
+  const arrow = showArrow ? `<span class="arrow">${c >= 0 ? '▲' : '▼'}</span>` : '';
+  const sign = c >= 0 ? '+' : '';
+  return `<span class="${cls}">${arrow}${sign}${Math.abs(c).toFixed(2)}%</span>`;
+}
+function sectorBadge(s) {
+  const map = { fin:'s-fin', energy:'s-energy', tech:'s-tech', health:'s-health', crypto:'s-crypto', bond:'s-bond', comod:'s-comod' };
+  const labels = { fin:'Financiero', energy:'Energía', tech:'Industrial', health:'Consumo', crypto:'Cripto', bond:'Renta Fija', comod:'Materiales' };
+  return `<span class="sector ${map[s]||'badge-neutral'}">${labels[s]||s}</span>`;
+}
+function miniSpark(up=true) {
+  const pts = Array.from({length:12}, () => 20 + Math.random()*30);
+  if(up) pts[pts.length-1] = Math.max(...pts)*0.95 + 3;
+  else   pts[pts.length-1] = Math.min(...pts)*0.95 - 1;
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const norm = pts.map(p => 28 - ((p-min)/(max-min||1))*24);
+  const path = norm.map((y,i)=>`${i===0?'M':'L'}${i*(80/11)},${y}`).join(' ');
+  const col = up ? '#00C896' : '#FF4757';
+  return `<svg class="spark" width="80" height="30" viewBox="0 0 80 30">
+    <path d="${path}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>
+    <circle cx="80" cy="${norm[norm.length-1]}" r="2" fill="${col}"/>
+  </svg>`;
+}
+function skeletonRows(n=5, cols=8) {
+  return Array.from({length:n}, () =>
+    `<tr class="skel-row">
+      <td><div class="skeleton skel-num"></div></td>
+      <td><div style="display:flex;flex-direction:column;gap:4px"><div class="skeleton skel-name"></div><div class="skeleton skel-sub"></div></div></td>
+      ${Array.from({length:cols-3}, () => `<td><div class="skeleton skel-price" style="margin-left:auto"></div></td>`).join('')}
+      <td></td>
+    </tr>`
+  ).join('');
+}
+function updateRefreshInfo() {
+  const el = document.getElementById('refresh-info');
+  if(el && cryptoLastUpdate) {
+    const t = cryptoLastUpdate.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    el.textContent = 'Cripto: ' + t;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// RENDER MAIN TABLES
+// ══════════════════════════════════════════════════════════════════
+
+function renderMainTables() {
+  const isCrypto = currentMarket === 'cripto';
+  const dataset = isCrypto ? buildCryptoDataset() : (DATA[currentMarket] || DATA.lideres);
+
+  // Update context bar
+  const ctxLabel = document.getElementById('winners-context-label');
+  const ctxBadge = document.getElementById('winners-api-badge');
+  const lBadge   = document.getElementById('losers-api-badge');
+  const lLabel   = document.getElementById('losers-context-label');
+
+  if(ctxLabel) ctxLabel.textContent = dataset.label || '';
+  if(lLabel)   lLabel.textContent   = dataset.losersLabel || '';
+  if(ctxBadge) { ctxBadge.textContent = dataset.api || 'Datos demo'; ctxBadge.className = 'api-badge ' + (dataset.apiClass||'static'); }
+  if(lBadge)   { lBadge.textContent   = dataset.api || 'Datos demo'; lBadge.className   = 'api-badge ' + (dataset.apiClass||'static'); }
+
+  // Update section titles
+  const wTitle = document.getElementById('winners-title');
+  const lTitle = document.getElementById('losers-title');
+  if(wTitle) wTitle.textContent = isCrypto ? 'Ranking Criptomonedas — Mayores Subas' : 'Tabla de Posiciones';
+  if(lTitle) lTitle.textContent = isCrypto ? 'Criptomonedas — Mayores Caídas' : (dataset.losersLabel || 'Zona de Descenso');
+
+  // Update thead
+  document.getElementById('winners-thead').innerHTML = dataset.thead;
+  document.getElementById('losers-thead').innerHTML  = dataset.lhead;
+
+  // Winners table
+  const wTb = document.getElementById('main-table');
+  if(isCrypto && cryptoData.length === 0) {
+    wTb.innerHTML = skeletonRows(8);
+  } else {
+    const sorted = [...dataset.winners].sort((a,b) => b.chg - a.chg);
+    wTb.innerHTML = sorted.map((d,i) => renderWinnerRow(d, i, isCrypto)).join('');
+  }
+
+  // Losers table
+  const lTb = document.getElementById('losers-table');
+  if(isCrypto && cryptoData.length === 0) {
+    lTb.innerHTML = skeletonRows(5);
+  } else {
+    const sorted = [...dataset.losers].sort((a,b) => a.chg - b.chg);
+    lTb.innerHTML = sorted.map((d,i) => renderLoserRow(d, i, isCrypto)).join('');
+  }
+}
+
+function buildCryptoDataset() {
+  const sorted = [...cryptoData].sort((a,b) => cryptoChgForTimeframe(b) - cryptoChgForTimeframe(a));
+  const winners = sorted.slice(0, 8).map(c => ({
+    sym: c.symbol.toUpperCase(),
+    full: c.name,
+    sector: 'crypto',
+    price: c.current_price,
+    priceUSD: true,
+    chg: cryptoChgForTimeframe(c),
+    vol: '$' + (c.total_volume >= 1e9 ? (c.total_volume/1e9).toFixed(1)+'B' : (c.total_volume/1e6).toFixed(0)+'M'),
+    hi52: c.ath,
+    lo52: c.atl > 0 ? c.atl : c.low_24h,
+    mktCap: c.market_cap,
+    rank: c.market_cap_rank,
+  }));
+  const losers = [...sorted].reverse().slice(0, 5).map(c => ({
+    sym: c.symbol.toUpperCase(),
+    full: c.name,
+    sector: 'crypto',
+    price: c.current_price,
+    priceUSD: true,
+    chg: cryptoChgForTimeframe(c),
+    vol: '$' + (c.total_volume >= 1e9 ? (c.total_volume/1e9).toFixed(1)+'B' : (c.total_volume/1e6).toFixed(0)+'M'),
+    distMax: c.ath > 0 ? Math.round(((c.current_price - c.ath) / c.ath) * 100) : 0,
+  }));
+  return {
+    label: 'Criptomonedas — CoinGecko API · Tiempo Real',
+    losersLabel: 'Criptomonedas con mayor caída · CoinGecko',
+    api: 'CoinGecko Live',
+    apiClass: 'live',
+    winners, losers,
+    thead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio (USD)</th><th>Var. %</th><th>Var. $</th><th>Volumen 24h</th><th>ATH</th><th>ATL / Mín</th><th>Tendencia</th></tr>`,
+    lhead: `<tr><th class="rank">#</th><th>Activo</th><th>Sector</th><th>Precio (USD)</th><th>Var. %</th><th>Var. $</th><th>Volumen 24h</th><th>Dist. ATH</th><th>Tendencia</th></tr>`,
+  };
+}
+
+function renderWinnerRow(d, i, isCrypto=false) {
+  const rankClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'';
+  const priceStr = d.priceUSD ? '$' + fmtUSD(d.price) : '$' + fmt(d.price);
+  const varAmt = (d.price * d.chg / 100);
+  const varStr = d.priceUSD ? (d.chg>=0?'+':'') + '$' + fmtUSD(Math.abs(varAmt)) : (d.chg>=0?'+':'') + '$' + fmt(Math.abs(varAmt));
+  const hiPct = d.hi52 > 0 ? Math.round((d.price / d.hi52) * 100) : 0;
+  const hi52Str = d.priceUSD ? '$' + fmtUSD(d.hi52||0) : '$' + fmt(d.hi52||0);
+  const lo52Str = d.priceUSD ? '$' + fmtUSD(d.lo52||0) : '$' + fmt(d.lo52||0);
+  return `<tr>
+    <td class="rank ${rankClass}">${i+1}</td>
+    <td><span class="asset-name">${d.sym}</span><span class="asset-full">${d.full}</span></td>
+    <td>${sectorBadge(d.sector)}</td>
+    <td class="price-cell">${priceStr}</td>
+    <td>${chgHtml(d.chg)}</td>
+    <td class="${d.chg>=0?'up':'dn'}">${varStr}</td>
+    <td style="color:var(--text-dim)">${d.vol}</td>
+    <td>
+      <div class="minibar-wrap">
+        <span style="font-size:10px;color:var(--text-muted)">${hiPct}%</span>
+        <div class="minibar"><div class="minibar-fill" style="width:${Math.min(hiPct,100)}%;background:var(--green)"></div></div>
+      </div>
+    </td>
+    <td style="color:var(--text-muted)">${lo52Str}</td>
+    <td class="spark-cell">${miniSpark(d.chg>=0)}</td>
+  </tr>`;
+}
+
+function renderLoserRow(d, i, isCrypto=false) {
+  const priceStr = d.priceUSD ? '$' + fmtUSD(d.price) : '$' + fmt(d.price);
+  const varAmt = d.price * d.chg / 100;
+  const varStr = d.priceUSD ? '$' + fmtUSD(Math.abs(varAmt)) : '$' + fmt(Math.abs(varAmt));
+  return `<tr>
+    <td class="rank" style="color:var(--red)">${i+1}</td>
+    <td><span class="asset-name">${d.sym}</span><span class="asset-full">${d.full}</span></td>
+    <td>${sectorBadge(d.sector)}</td>
+    <td class="price-cell">${priceStr}</td>
+    <td>${chgHtml(d.chg)}</td>
+    <td class="dn">-${varStr}</td>
+    <td style="color:var(--text-dim)">${d.vol||'—'}</td>
+    <td><span class="badge badge-dn">${d.distMax}% del máx.</span></td>
+    <td class="spark-cell">${miniSpark(false)}</td>
+  </tr>`;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SIDEBAR RENDERS
+// ══════════════════════════════════════════════════════════════════
+
+function renderCryptoSidebar() {
+  const el = document.getElementById('crypto-list');
+  const badge = document.getElementById('crypto-sidebar-badge');
+  if(cryptoData.length === 0) {
+    el.innerHTML = Array.from({length:5}, () => `<div class="skel-row"><div class="skeleton skel-name"></div><div class="skeleton skel-price" style="margin-left:auto"></div></div>`).join('');
+    return;
+  }
+  if(badge) { badge.textContent = 'CoinGecko Live'; badge.className = 'api-badge live'; }
+  el.innerHTML = cryptoData.slice(0,6).map(c => {
+    const chg = +(c.price_change_percentage_24h||0).toFixed(2);
+    return `<div class="sidebar-row">
+      <div>
+        <div class="sidebar-sym">${c.symbol.toUpperCase()}</div>
+        <div class="sidebar-full">${c.name}</div>
+      </div>
+      <div class="sidebar-right">
+        <div class="sidebar-price">$${fmtUSD(c.current_price)}</div>
+        <div style="font-size:11px">${chgHtml(chg, false)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderEvents() {
+  const el = document.getElementById('events-list');
+  const typeColor = { balance:'var(--green)', macro:'var(--gold)', vcto:'var(--red)' };
+  const typeLabel = { balance:'Balance', macro:'Macro', vcto:'Vencimiento' };
+  el.innerHTML = EVENTS.map(e => `
+    <div class="sidebar-row">
+      <div>
+        <div style="font-family:var(--display);font-size:12px;color:var(--text);font-weight:600">${e.desc}</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:2px;font-family:var(--display)">${e.date} · ${e.time}</div>
+      </div>
+      <span class="badge" style="background:${typeColor[e.type]}22;color:${typeColor[e.type]};border:1px solid ${typeColor[e.type]}">${typeLabel[e.type]}</span>
+    </div>`).join('');
+}
+
+function renderVolume() {
+  const el = document.getElementById('volume-list');
+  el.innerHTML = TOP_VOL.map(d => `
+    <div class="sidebar-row">
+      <div><div class="sidebar-sym">${d.sym}</div><div class="sidebar-full">${d.vol} negociado</div></div>
+      <div class="sidebar-right"><div class="sidebar-price">${d.price}</div><div style="font-size:11px">${chgHtml(d.chg,false)}</div></div>
+    </div>`).join('');
+}
+
+function renderFX() {
+  const el = document.getElementById('fx-list');
+  el.innerHTML = FX.map(d => `
+    <div class="sidebar-row">
+      <div class="sidebar-sym">${d.sym}</div>
+      <div class="sidebar-right"><div class="sidebar-price">${d.price}</div><div style="font-size:11px">${chgHtml(d.chg,false)}</div></div>
+    </div>`).join('');
+}
+
+function renderIndicesSidebar() {
+  const el = document.getElementById('indices-sidebar');
+  el.innerHTML = TRENDING_INDICES.slice(0,6).map(d => `
+    <div class="sidebar-row">
+      <div><div class="sidebar-sym">${d.sym}</div><div class="sidebar-full">${d.full}</div></div>
+      <div class="sidebar-right"><div class="sidebar-price">${d.price}</div><div style="font-size:11px">${chgHtml(d.chg,false)}</div></div>
+    </div>`).join('');
+}
+
+function renderCommoditiesSidebar() {
+  const el = document.getElementById('commodities-sidebar');
+  el.innerHTML = COMMODITIES_SIDEBAR.map(d => `
+    <div class="sidebar-row">
+      <div><div class="sidebar-sym">${d.sym}</div><div class="sidebar-full">${d.full}</div></div>
+      <div class="sidebar-right"><div class="sidebar-price">${d.price}</div><div style="font-size:11px">${chgHtml(d.chg,false)}</div></div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TRENDING STRIP
+// ══════════════════════════════════════════════════════════════════
+
+function renderTrending() {
+  const el = document.getElementById('trending-cards');
+  const regionBadge = { us:'s-us', eu:'s-eu', asia:'s-asia', latam:'s-latam', vol:'s-vol' };
+  const regionLabel = { us:'EE.UU.', eu:'Europa', asia:'Asia', latam:'LatAm', vol:'Volatilidad' };
+  el.innerHTML = TRENDING_INDICES.map((d,i) => `
+    <div class="idx-card ${d.chg>=0?'up':'dn'}">
+      <div class="idx-card-sym">${d.sym} <span style="font-size:9px;color:var(--text-muted);font-weight:400">#${i+1}</span></div>
+      <div class="idx-card-full">${d.full} · <span class="sector ${regionBadge[d.region]||''}">${regionLabel[d.region]||''}</span></div>
+      <div class="idx-card-price">${d.price}</div>
+      <div class="idx-card-chg"><span class="${d.chg>=0?'up':'dn'}">${d.chg>=0?'+':''}${fmt(d.chg)}%</span></div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MERCADOS GLOBALES
+// ══════════════════════════════════════════════════════════════════
+
+let currentGmFilter = 'all';
+
+function setGmTab(el, filter) {
+  document.querySelectorAll('.gm-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentGmFilter = filter;
+  renderGmGrid();
+}
+
+function renderGmGrid() {
+  const grid = document.getElementById('gm-grid');
+  const keys = currentGmFilter === 'all' ? Object.keys(GM_DATA) : [currentGmFilter];
+  grid.innerHTML = keys.map(key => {
+    const panel = GM_DATA[key];
+    const isLive = key === 'crypto';
+    const isRate = key === 'rates';
+    const isBond = key === 'bonds';
+    const lastUpd = isLive && cryptoLastUpdate
+      ? `<span class="last-update">${cryptoLastUpdate.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</span>` : '';
+
+    const rows = panel.items.length === 0 ? skeletonRows(5,3) : panel.items.map(item => {
+      const chgNum = typeof item.chg === 'number' ? item.chg : 0;
+      let chgDisplay;
+      if(isRate) {
+        const cls = chgNum>0?'up':chgNum<0?'dn':'';
+        chgDisplay = chgNum===0 ? '<span style="color:var(--text-muted)">Sin cambios</span>' : `<span class="${cls}">${chgNum>0?'+':''}${chgNum} bps</span>`;
+      } else if(isBond) {
+        const cls = chgNum<0?'up':chgNum>0?'dn':''; // bonds: yield down = price up
+        chgDisplay = `<span class="${cls}">${chgNum>=0?'+':''}${chgNum.toFixed(2)}%</span>`;
+      } else {
+        chgDisplay = chgNum===0 ? '<span style="color:var(--text-muted)">0.00%</span>' : chgHtml(chgNum, false);
+      }
+      return `<div class="gm-row">
+        <div class="gm-row-left"><span class="gm-name">${item.name}</span><span class="gm-sub">${item.sub}</span></div>
+        <div class="gm-row-right"><div class="gm-price">${item.price}</div><div class="gm-chg">${chgDisplay}</div></div>
+      </div>`;
+    }).join('');
+
+    return `<div class="gm-panel">
+      <div class="gm-panel-header">
+        <div class="gm-panel-header-left"><span class="dot ${panel.dot}"></span>${panel.label}</div>
+        ${isLive ? '<span class="api-badge live">CoinGecko Live ' + lastUpd + '</span>' : ''}
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TICKER
+// ══════════════════════════════════════════════════════════════════
+
+function buildTicker() {
+  const cryptoItems = cryptoData.length > 0
+    ? cryptoData.slice(0,5).map(c => ({ sym: c.symbol.toUpperCase(), price: '$'+fmtUSD(c.current_price), chg: +(c.price_change_percentage_24h||0).toFixed(2) }))
+    : [{ sym:'BTC', price:'—', chg:0 }, { sym:'ETH', price:'—', chg:0 }];
+
+  const items = [
+    ...TRENDING_INDICES.map(d => ({ sym:d.sym, price:d.price, chg:d.chg })),
+    ...FX.slice(0,3).map(d => ({ sym:d.sym, price:d.price, chg:d.chg })),
+    ...cryptoItems,
+    ...COMMODITIES_SIDEBAR.map(d => ({ sym:d.sym, price:d.price, chg:d.chg })),
+  ];
+  const html = items.map(d => {
+    const cls = d.chg >= 0 ? 'up' : 'dn';
+    const sign = d.chg >= 0 ? '+' : '';
+    return `<span class="ticker-item">
+      <span class="sym">${d.sym}</span>
+      <span class="price">${d.price}</span>
+      <span class="chg ${cls}">${sign}${typeof d.chg==='number'?d.chg.toFixed(2):'0.00'}%</span>
+      <span class="ticker-dot">●</span>
+    </span>`;
+  }).join('');
+  const t = document.getElementById('ticker');
+  t.innerHTML = html + html;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TAB CONTROLLERS
+// ══════════════════════════════════════════════════════════════════
+
+function setMarketTab(el, market) {
+  document.querySelectorAll('.market-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentMarket = market;
+  renderMainTables();
+}
+
+function setTimeTab(el, tf) {
+  document.querySelectorAll('#time-tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  currentTimeframe = tf;
+  // Only matters for cripto (different chg fields)
+  if(currentMarket === 'cripto') renderMainTables();
+}
+
+function setMarketView(view, navEl) {
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  navEl.classList.add('active');
+  // Map nav to market tab
+  const map = { acciones:'lideres', bonos:'bonos', cripto:'cripto', commodities:'commodities', cedears:'cedears', fci:'fci' };
+  if(map[view]) {
+    const tab = [...document.querySelectorAll('.market-tab')].find(t => t.getAttribute('onclick') && t.getAttribute('onclick').includes("'"+map[view]+"'"));
+    if(tab) { document.querySelectorAll('.market-tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); }
+    currentMarket = map[view];
+    renderMainTables();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PRICE FLICKER
+// ══════════════════════════════════════════════════════════════════
+
+function flicker() {
+  const cells = document.querySelectorAll('.price-cell');
+  if(!cells.length) return;
+  const cell = cells[Math.floor(Math.random() * cells.length)];
+  cell.style.transition = 'color 0.2s';
+  cell.style.color = '#ffffff';
+  setTimeout(() => { cell.style.color = ''; }, 300);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// AUTO REFRESH
+// ══════════════════════════════════════════════════════════════════
+
+function startAutoRefresh() {
+  if(refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(async () => {
+    await fetchCryptoData();
+    updateRefreshInfo();
+  }, 60000); // 60s — CoinGecko free tier allows ~50 calls/min
+}
+
+// ══════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════
+
+(async function init() {
+  // Render static first
+  renderTrending();
+  renderMainTables();
+  renderEvents();
+  renderVolume();
+  renderFX();
+  renderIndicesSidebar();
+  renderCommoditiesSidebar();
+  renderCryptoSidebar(); // skeleton
+  renderGmGrid();
+  buildTicker();
+  setInterval(flicker, 1800);
+
+  // Fetch live crypto
+  await fetchCryptoData();
+
+  // Auto refresh every 60s
+  startAutoRefresh();
+})();
+</script>
+</body>
+</html>
